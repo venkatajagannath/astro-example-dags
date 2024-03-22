@@ -1,4 +1,5 @@
 from airflow.providers.amazon.aws.operators.eks import EksCreateClusterOperator
+from airflow.providers.cncf.kubernetes.operators.kubernetes_pod import KubernetesPodOperator
 from airflow import DAG
 from airflow.models.connection import Connection
 from datetime import datetime
@@ -31,7 +32,6 @@ with DAG(
     
     # Create an instance of EksCreateClusterOperator
     create_cluster_task = EksCreateClusterOperator(
-        task_id="create_eks_cluster",
         cluster_name="RayCluster",
         cluster_role_arn="",  # Fill in with your role ARN
         resources_vpc_config=None,  # Fill in with your VPC configuration
@@ -40,3 +40,15 @@ with DAG(
         aws_conn_id=conn.conn_id,  # AWS connection ID
         region="us-east-1"  # Specify your desired region
     )
+
+    # Run Helm install command
+    helm_install_task = KubernetesPodOperator(
+        name="helm-install-task",
+        namespace="default",
+        image="lachlanevenson/k8s-helm:v3.7.0",  # Use the Helm image
+        cmds=["helm", "install", "my-release", "my-chart"],  # Replace with your Helm command
+        dag=dag,
+    )
+    
+    # Set task dependencies
+    create_cluster_task >> helm_install_task
